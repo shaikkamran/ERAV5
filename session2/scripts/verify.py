@@ -3,30 +3,49 @@ import re
 import json
 import sys
 
+# Unicode ranges for Indic consonants and combining marks
+INDIC_CONSONANTS = (
+    r'[\u0904-\u0939\u0958-\u0961'  # Devanagari (Hindi)
+    r'\u0c05-\u0c39\u0c58-\u0c61'  # Telugu
+    r'\u0b85-\u0b9c\u0b9e-\u0ba9\u0baa-\u0bb9'  # Tamil
+    r'\u0985-\u099c\u099e-\u0ba9\u0baa-\u0bb9]'  # Bengali
+)
+
+INDIC_COMBINING = (
+    r'[\u0900-\u0903\u093e-\u094c\u094e-\u094f\u0951-\u0957\u0962-\u0963'  # Devanagari
+    r'\u0c00-\u0c04\u0c3e-\u0c4c\u0c55-\u0c56\u0c62-\u0c63'  # Telugu
+    r'\u0b82\u0bbe-\u0bc2\u0bc6-\u0bc8\u0bca-\u0bcc\u0bd7]'  # Tamil
+)
+
+SIMPLE_GRAPHEME_PATTERN = (
+    rf'(?:{INDIC_CONSONANTS})(?:{INDIC_COMBINING})*'
+    r'|.'
+)
+
+def split_graphemes(text):
+    return re.findall(SIMPLE_GRAPHEME_PATTERN, text)
+
 class BPETokenizer:
     def __init__(self, vocab, merges):
         self.vocab = vocab
         self.merges = merges
         self.char_to_id = {char: idx for idx, char in enumerate(vocab)}
-        
-        # Build a lookup table for merges to speed up tokenization
-        # Maps (parent, child) -> parent+child
-        self.merge_map = {}
-        for parent, child in merges:
-            self.merge_map[(parent, child)] = parent + child
             
     def tokenize(self, text):
         # Replace space with U+2581 (lower one eighth block)
         text_processed = text.replace(' ', ' ')
         
-        # Split into words starting with U+2581, words without U+2581, and newlines
-        pattern = r' [^ \n]+|[^ \n]+|\n'
+        # Punctuation characters to isolate
+        punct = r'.,!?;:\(\)\[\]\{\}"\'«»\-\–\—/\\\|*&^%$#@।॥_+=<>`~'
+        
+        # Split into words, spaces, and isolated punctuation segments
+        pattern = rf' [^{punct} \n]+|[^{punct} \n]+| |[{punct}]|\n'
         words = re.findall(pattern, text_processed)
         
         tokenized_ids = []
         for word in words:
-            # Represent word as a list of its individual characters
-            word_tokens = list(word)
+            # Represent word as a list of its simple grapheme clusters
+            word_tokens = split_graphemes(word)
             
             # Apply merges in the exact order they were trained
             for parent, child in self.merges:
@@ -46,7 +65,7 @@ class BPETokenizer:
                 if t in self.char_to_id:
                     tokenized_ids.append(self.char_to_id[t])
                 else:
-                    # Ignore unknown characters (or handle gracefully)
+                    # Ignore unknown tokens
                     pass
         return tokenized_ids
 

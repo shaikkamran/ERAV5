@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual BPE Tokenizer Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-base: #0a0c10;
+            --bg-surface: rgba(22, 26, 37, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --primary: #58a6ff;
+            --primary-glow: rgba(88, 166, 255, 0.15);
+            --success: #3fb950;
+            --success-glow: rgba(63, 185, 80, 0.15);
+            --warning: #d29922;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            
+            --lang-en: #58a6ff;
+            --lang-hi: #ff7b72;
+            --lang-te: #d29922;
+            --lang-ta: #bc8cff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            line-height: 1.5;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(88, 166, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(188, 140, 255, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        header {
+            padding: 2.5rem 2rem 1.5rem;
+            max-width: 1300px;
+            margin: 0 auto;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, #a5d6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-title p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        .badge-container {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge.success {
+            border-color: var(--success);
+            background: var(--success-glow);
+            color: #56d364;
+        }
+
+        main {
+            max-width: 1300px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .span-2 {
+            grid-column: span 2;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Score Card */
+        .score-card {
+            background: linear-gradient(135deg, rgba(22, 26, 37, 0.8), rgba(88, 166, 255, 0.08));
+            border-color: rgba(88, 166, 255, 0.2);
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .score-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #58a6ff, #bc8cff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.1;
+            margin: 0.5rem 0;
+            letter-spacing: -2px;
+        }
+
+        .score-formula {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+        }
+
+        /* Ratios list */
+        .ratio-item {
+            margin-bottom: 1rem;
+        }
+
+        .ratio-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .ratio-lang {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .ratio-lang::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .ratio-lang.en::before { background-color: var(--lang-en); }
+        .ratio-lang.hi::before { background-color: var(--lang-hi); }
+        .ratio-lang.te::before { background-color: var(--lang-te); }
+        .ratio-lang.ta::before { background-color: var(--lang-ta); }
+
+        .ratio-value {
+            font-family: 'Fira Code', monospace;
+            font-weight: 600;
+        }
+
+        .ratio-progress-bg {
+            background: rgba(255, 255, 255, 0.04);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .ratio-progress-bar {
+            height: 100%;
+            border-radius: 4px;
+            width: 0;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ratio-progress-bar.en { background-color: var(--lang-en); }
+        .ratio-progress-bar.hi { background-color: var(--lang-hi); }
+        .ratio-progress-bar.te { background-color: var(--lang-te); }
+        .ratio-progress-bar.ta { background-color: var(--lang-ta); }
+
+        /* Playground */
+        .playground-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.75rem;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .tab-btn.active {
+            color: var(--text-main);
+            background: rgba(88, 166, 255, 0.12);
+            border: 1px solid rgba(88, 166, 255, 0.2);
+        }
+
+        .playground-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn-small {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-small:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .playground-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            flex-grow: 1;
+        }
+
+        textarea {
+            width: 100%;
+            height: 320px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .token-display {
+            width: 100%;
+            height: 320px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-y: auto;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Color code segments */
+        .token {
+            display: inline-block;
+            border-radius: 4px;
+            padding: 0px 2px;
+            margin: 1px 1px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: inherit;
+        }
+
+        /* Dynamic BPE Token Highlighting Colors */
+        .token-c0 { background-color: rgba(88, 166, 255, 0.15); color: #79c0ff; border-color: rgba(88, 166, 255, 0.3); }
+        .token-c1 { background-color: rgba(255, 123, 114, 0.15); color: #ffa198; border-color: rgba(255, 123, 114, 0.3); }
+        .token-c2 { background-color: rgba(210, 153, 34, 0.15); color: #e3b341; border-color: rgba(210, 153, 34, 0.3); }
+        .token-c3 { background-color: rgba(188, 140, 255, 0.15); color: #d2a8ff; border-color: rgba(188, 140, 255, 0.3); }
+        .token-c4 { background-color: rgba(56, 220, 220, 0.15); color: #a5e6e6; border-color: rgba(56, 220, 220, 0.3); }
+
+        .token-space {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 0.8rem;
+            margin-right: 2px;
+        }
+
+        .playground-stats {
+            margin-top: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+        }
+
+        .playground-stats span strong {
+            color: var(--primary);
+        }
+
+        /* Downloader Card */
+        .downloader-card {
+            align-items: stretch;
+            justify-content: space-between;
+        }
+
+        .downloader-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .downloader-desc ul {
+            margin-top: 0.5rem;
+            margin-left: 1.25rem;
+        }
+
+        .downloader-desc li {
+            margin-bottom: 0.25rem;
+        }
+
+        .download-btn {
+            background: var(--primary);
+            color: #0d1117;
+            border: none;
+            padding: 0.85rem 1.5rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            transition: background 0.2s, transform 0.1s;
+            text-decoration: none;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .download-btn:hover {
+            background: #79c0ff;
+        }
+
+        .download-btn:active {
+            transform: scale(0.98);
+        }
+
+        .grapheme-box {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-top: 1rem;
+            overflow-x: auto;
+        }
+
+        footer {
+            max-width: 1300px;
+            margin: 4rem auto 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 1100px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+            .span-2 {
+                grid-column: span 1;
+            }
+            .playground-main {
+                grid-template-columns: 1fr;
+            }
+            textarea, .token-display {
+                height: 240px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <h1>Multilingual BPE Tokenizer</h1>
+            <p>India Wikipedia corpus tokenizer trained on English, Hindi, Telugu, and Tamil</p>
+        </div>
+        <div class="badge-container">
+            <div class="badge success" id="en-status-badge">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>
+                English Ratio Check (X1 &le; 1.2)
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Card 1: Score Dashboard -->
+        <div class="card score-card">
+            <div class="card-title" style="width: 100%; justify-content: center;">Self Evaluation Score</div>
+            <div class="score-value" id="score-val">--</div>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Optimized using constrained training & matra cluster base tokens</p>
+            <div class="score-formula">1000 / (X_max - X_min)</div>
+        </div>
+
+        <!-- Card 2: Compression Ratios -->
+        <div class="card">
+            <div class="card-title">Compression Ratios ($X_i$)</div>
+            <div id="ratios-list">
+                <!-- English -->
+                <div class="ratio-item">
+                    <div class="ratio-meta">
+                        <span class="ratio-lang en">English (X1)</span>
+                        <span class="ratio-value" id="ratio-val-en">--</span>
+                    </div>
+                    <div class="ratio-progress-bg">
+                        <div class="ratio-progress-bar en" id="ratio-bar-en"></div>
+                    </div>
+                </div>
+                <!-- Hindi -->
+                <div class="ratio-item">
+                    <div class="ratio-meta">
+                        <span class="ratio-lang hi">Hindi (X2)</span>
+                        <span class="ratio-value" id="ratio-val-hi">--</span>
+                    </div>
+                    <div class="ratio-progress-bg">
+                        <div class="ratio-progress-bar hi" id="ratio-bar-hi"></div>
+                    </div>
+                </div>
+                <!-- Telugu -->
+                <div class="ratio-item">
+                    <div class="ratio-meta">
+                        <span class="ratio-lang te">Telugu (X3)</span>
+                        <span class="ratio-value" id="ratio-val-te">--</span>
+                    </div>
+                    <div class="ratio-progress-bg">
+                        <div class="ratio-progress-bar te" id="ratio-bar-te"></div>
+                    </div>
+                </div>
+                <!-- Tamil -->
+                <div class="ratio-item">
+                    <div class="ratio-meta">
+                        <span class="ratio-lang ta">Tamil (X4)</span>
+                        <span class="ratio-value" id="ratio-val-ta">--</span>
+                    </div>
+                    <div class="ratio-progress-bg">
+                        <div class="ratio-progress-bar ta" id="ratio-bar-ta"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Vocab Stats -->
+        <div class="card">
+            <div class="card-title">Tokenizer Parameters</div>
+            <div style="display: flex; flex-direction: column; gap: 1rem; flex-grow: 1; justify-content: center;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="color: var(--text-muted);">Total Vocabulary Size</span>
+                    <span style="font-weight: 600; font-family: 'Fira Code', monospace;">10,000</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="color: var(--text-muted);">Base Alphabet (Graphemes)</span>
+                    <span style="font-weight: 600; font-family: 'Fira Code', monospace;" id="base-vocab-val">1,057</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    <span style="color: var(--text-muted);">BPE Merge Rules</span>
+                    <span style="font-weight: 600; font-family: 'Fira Code', monospace;" id="merges-val">8,943</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-bottom: 0.5rem;">
+                    <span style="color: var(--text-muted);">Indic Syllable Protection</span>
+                    <span style="font-weight: 600; color: #56d364;">Enabled (NFC)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Interactive Playground -->
+        <div class="card span-2">
+            <div class="card-title">Interactive Tokenization Playground</div>
+            <div class="playground-tabs" id="lang-tabs">
+                <button class="tab-btn active" data-lang="en">English</button>
+                <button class="tab-btn" data-lang="hi">Hindi</button>
+                <button class="tab-btn" data-lang="te">Telugu</button>
+                <button class="tab-btn" data-lang="ta">Tamil</button>
+            </div>
+            <div class="playground-actions">
+                <button class="btn-small" id="load-sample-btn">Load Wikipedia Article Excerpt</button>
+                <button class="btn-small" id="clear-text-btn">Clear Text</button>
+            </div>
+            <div class="playground-main">
+                <div>
+                    <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Source Text</label>
+                    <textarea id="playground-input" placeholder="Type or paste text here..."></textarea>
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Tokenized Output (Color Coded)</label>
+                    <div class="token-display" id="playground-output"></div>
+                </div>
+            </div>
+            <div class="playground-stats">
+                <span>Words: <strong id="play-words">0</strong></span>
+                <span>Tokens: <strong id="play-tokens">0</strong></span>
+                <span>Ratio: <strong id="play-ratio">0.0000</strong></span>
+            </div>
+        </div>
+
+        <!-- Card 5: Downloader & Details -->
+        <div class="card downloader-card">
+            <div>
+                <div class="card-title">Download Tokenizer</div>
+                <div class="downloader-desc">
+                    Get the generated BPE vocabulary configuration. This file is 100% compatible with our custom browser tokenizer and python validator.
+                    <br><br>
+                    <strong>File Contents:</strong>
+                    <ul>
+                        <li><code>langs</code>: List of target languages.</li>
+                        <li><code>vocab</code>: Complete 10,000 vocabulary list.</li>
+                        <li><code>merges</code>: 8,943 ordered BPE merge rules.</li>
+                        <li><code>ratios</code>: Final calculated training ratios.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div>
+                <div class="grapheme-box">
+                    <strong>Grapheme Cluster Protection</strong>
+                    <div style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.8rem; line-height: 1.4;">
+                        Our tokenizer splits Indic scripts (Devanagari, Telugu, Tamil) using a custom regex:
+                        <br>
+                        <code>Consonant + matras*</code>
+                        <br>
+                        This keeps base sounds and vowel markers visually unified, preventing naive BPE slices inside linguistic letters.
+                    </div>
+                </div>
+                <a class="download-btn" id="download-tokenizer-btn" style="margin-top: 1.5rem;">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM8 1a.75.75 0 0 1 .75.75v6.19l1.72-1.72a.756.756 0 0 1 1.06 0 .75.75 0 0 1 0 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V1.75A.75.75 0 0 1 8 1Z"/></svg>
+                    Download tokenizer.json
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>Submitted for Session 2 Assignment • Axiom NLP & Deep Learning Course</p>
+    </footer>
+
+    <!-- Import pre-generated data files -->
+    <script src="tokenizer_data.js"></script>
+    <script src="sample_texts.js"></script>
+    <!-- Import app logic -->
+    <script src="app.js"></script>
+</body>
+</html>

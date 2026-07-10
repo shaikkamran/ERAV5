@@ -5,16 +5,44 @@ import sys
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
+# Unicode ranges for Indic consonants and combining marks
+INDIC_CONSONANTS = (
+    r'[\u0904-\u0939\u0958-\u0961'  # Devanagari (Hindi)
+    r'\u0c05-\u0c39\u0c58-\u0c61'  # Telugu
+    r'\u0b85-\u0b9c\u0b9e-\u0ba9\u0baa-\u0bb9'  # Tamil
+    r'\u0985-\u099c\u099e-\u0ba9\u0baa-\u0bb9]'  # Bengali
+)
+
+INDIC_COMBINING = (
+    r'[\u0900-\u0903\u093e-\u094c\u094e-\u094f\u0951-\u0957\u0962-\u0963'  # Devanagari
+    r'\u0c00-\u0c04\u0c3e-\u0c4c\u0c55-\u0c56\u0c62-\u0c63'  # Telugu
+    r'\u0b82\u0bbe-\u0bc2\u0bc6-\u0bc8\u0bca-\u0bcc\u0bd7]'  # Tamil
+)
+
+# Simple grapheme cluster regex pattern: groups consonant + matras (combining vowel marks)
+# to prevent naive slicing, but keeps conjuncts split to minimize base vocab size.
+SIMPLE_GRAPHEME_PATTERN = (
+    rf'(?:{INDIC_CONSONANTS})(?:{INDIC_COMBINING})*'
+    r'|.'
+)
+
+def split_graphemes(text):
+    return re.findall(SIMPLE_GRAPHEME_PATTERN, text)
+
 def extract_words(text):
-    # Replace punctuation and special symbols with spaces, keeping characters (including Indic Unicode combining marks)
+    # Same word cleaning as the evaluator's clean words definition
     cleaned = re.sub(r'[\s.,!?;:\(\)\[\]\{\}"\'«»\-\–\—/\\\|*&^%$#@।॥_+=<>`~\u200b\u200c\u200d]+', ' ', text)
     return [w for w in cleaned.split() if w]
 
 def pre_tokenize(text):
     # Replace space with U+2581 (lower one eighth block)
     text = text.replace(' ', ' ')
-    # Split into words starting with U+2581, words without U+2581, and newlines
-    pattern = r' [^ \n]+|[^ \n]+|\n'
+    
+    # Punctuation characters to isolate
+    punct = r'.,!?;:\(\)\[\]\{\}"\'«»\-\–\—/\\\|*&^%$#@।॥_+=<>`~'
+    
+    # Matches words, spaces, punctuation as isolated tokens
+    pattern = rf' [^{punct} \n]+|[^{punct} \n]+| |[{punct}]|\n'
     return re.findall(pattern, text)
 
 def merge_tuple(word_tuple, pair, new_id):
@@ -30,9 +58,7 @@ def merge_tuple(word_tuple, pair, new_id):
     return tuple(new_tuple)
 
 def main():
-    # Allow user to specify the 4th language via command line
-    # Default is "as" (Assamese) as it yields the highest score, but user can change it
-    # fourth_lang = "as"
+    # We will use "ta" (Tamil) as the default 4th language for the final widget
     fourth_lang = "ta"
     if len(sys.argv) > 1:
         fourth_lang = sys.argv[1]
@@ -48,7 +74,6 @@ def main():
         filepath = os.path.join(DATA_DIR, f"india_{lang}.txt")
         if not os.path.exists(filepath):
             print(f"Error: Corpus file for language '{lang}' not found at {filepath}")
-            print("Please run scripts/fetch_data.py or ensure the file exists.")
             sys.exit(1)
             
         with open(filepath, "r", encoding="utf-8") as f:
@@ -56,47 +81,46 @@ def main():
             
         word_counts[lang] = len(extract_words(text))
         pre_tokens[lang] = pre_tokenize(text)
-        print(f" - {lang:<5}: Characters = {len(text):<6} | Words (W) = {word_counts[lang]:<5} | Pre-tokens = {len(pre_tokens[lang])}")
+        print(f" - {lang:<5}: Characters = {len(text):<6} | Words (W) = {word_counts[lang]:<5} | Segments = {len(pre_tokens[lang])}")
 
-    # Build character vocabulary
-    all_chars = set()
+    # Build base vocabulary of grapheme clusters
+    all_graphemes = set()
     for lang in langs:
-        for token in pre_tokens[lang]:
-            all_chars.update(token)
+        for segment in pre_tokens[lang]:
+            all_graphemes.update(split_graphemes(segment))
             
-    sorted_chars = sorted(list(all_chars))
-    print(f"\nBase alphabet size: {len(sorted_chars)} characters.")
+    sorted_graphemes = sorted(list(all_graphemes))
+    print(f"\nBase Grapheme Vocab size: {len(sorted_graphemes)} tokens.")
     
     # Initialize vocabulary mappings
-    char_to_id = {char: idx for idx, char in enumerate(sorted_chars)}
-    id_to_token = {idx: char for idx, char in enumerate(sorted_chars)}
+    char_to_id = {g: idx for idx, g in enumerate(sorted_graphemes)}
+    id_to_token = {idx: g for idx, g in enumerate(sorted_graphemes)}
     
-    # Initialize word frequencies with character ID tuples
+    # Initialize word frequencies with grapheme ID tuples
     word_freqs = {}
     for lang in langs:
         word_freqs[lang] = {}
         counts = {}
-        for token in pre_tokens[lang]:
-            counts[token] = counts.get(token, 0) + 1
+        for segment in pre_tokens[lang]:
+            counts[segment] = counts.get(segment, 0) + 1
             
-        for token, freq in counts.items():
-            char_ids = tuple(char_to_id[c] for c in token)
-            word_freqs[lang][char_ids] = freq
+        for segment, freq in counts.items():
+            graphemes = split_graphemes(segment)
+            grapheme_ids = tuple(char_to_id[g] for g in graphemes)
+            word_freqs[lang][grapheme_ids] = freq
 
     vocab_size = len(char_to_id)
     target_vocab_size = 10000
     merges = []
     
-    print("\nStarting BPE Training...")
+    print("\nStarting Grapheme-based BPE Training with Punctuation Isolation...")
     
-    # Phase 1: Compress English until its tokenization ratio is <= 1.2
-    # This is critical to satisfy the assignment requirement: X1 <= 1.2
+    # Phase 1: English constraint <= 1.2
     print("\n[Phase 1] Compressing English to satisfy constraint (X1 <= 1.2)...")
     step = 0
     max_steps = target_vocab_size - vocab_size
     
     while vocab_size < target_vocab_size:
-        # Calculate current English ratio
         en_t_count = sum(len(word_tuple) * freq for word_tuple, freq in word_freqs["en"].items())
         en_ratio = en_t_count / word_counts["en"]
         
@@ -111,10 +135,9 @@ def main():
                 pair_counts[pair] = pair_counts.get(pair, 0) + freq
                 
         if not pair_counts:
-            print(" -> English fully compressed before reaching target ratio. Stopping.")
+            print(" -> English fully compressed before reaching target ratio.")
             break
             
-        # Merge most frequent English pair
         best_pair = max(pair_counts, key=pair_counts.get)
         new_id = vocab_size
         vocab_size += 1
@@ -124,32 +147,25 @@ def main():
         token_repr = id_to_token[best_pair[0]] + id_to_token[best_pair[1]]
         id_to_token[new_id] = token_repr
         
-        # Apply merge in all languages
         for l in langs:
             word_freqs[l] = {
                 merge_tuple(word_tuple, best_pair, new_id): freq
                 for word_tuple, freq in word_freqs[l].items()
             }
 
-    # Phase 2: Balance the other three languages with the remaining budget
-    # We want to minimize the maximum ratio of Hindi, Telugu, and the 4th language
-    # to maximize the assignment score: 1000 / (X_max - X_min)
+    # Phase 2: Balance the other three languages
     print("\n[Phase 2] Balancing Hindi, Telugu, and 4th language to optimize score...")
     other_langs = ["hi", "te", fourth_lang]
     
     while vocab_size < target_vocab_size:
         step += 1
-        
-        # Calculate current ratios for the other languages
         ratios = {}
         for l in other_langs:
             t_count = sum(len(word_tuple) * freq for word_tuple, freq in word_freqs[l].items())
             ratios[l] = t_count / word_counts[l]
             
-        # Find language with highest ratio
         sorted_by_ratio = sorted(ratios.items(), key=lambda x: x[1], reverse=True)
         
-        # Find most frequent pair in that language
         best_pair = None
         chosen_lang = None
         for l, ratio in sorted_by_ratio:
@@ -166,7 +182,6 @@ def main():
             print(" -> No more pairs to merge. Stopping early.")
             break
             
-        # Merge
         new_id = vocab_size
         vocab_size += 1
         
@@ -174,7 +189,6 @@ def main():
         token_repr = id_to_token[best_pair[0]] + id_to_token[best_pair[1]]
         id_to_token[new_id] = token_repr
         
-        # Apply merge to all languages
         for l in langs:
             word_freqs[l] = {
                 merge_tuple(word_tuple, best_pair, new_id): freq
@@ -220,8 +234,6 @@ def main():
         json.dump(tokenizer_data, f, ensure_ascii=False, indent=2)
         
     print(f"\nSaved tokenizer configuration to {model_path}")
-    print(f"Saved vocabulary contains {len(vocab_list)} tokens.")
-    print(f"Saved merges contains {len(saved_merges)} rules.")
 
 if __name__ == "__main__":
     main()
