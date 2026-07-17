@@ -92,8 +92,24 @@ def main():
     with open(model_path, "r", encoding="utf-8") as f:
         tokenizer_data = json.load(f)
         
-    vocab = tokenizer_data["vocab"]
-    merges = tokenizer_data["merges"]
+    # Check if loaded JSON is standard Hugging Face format or custom format
+    if "model" in tokenizer_data:
+        vocab_dict = tokenizer_data["model"]["vocab"]
+        vocab = [None] * len(vocab_dict)
+        for token, idx in vocab_dict.items():
+            vocab[idx] = token
+            
+        merges = []
+        for m in tokenizer_data["model"]["merges"]:
+            if isinstance(m, list):
+                merges.append(tuple(m))
+            else:
+                parts = m.split()
+                merges.append(tuple(parts))
+    else:
+        vocab = tokenizer_data["vocab"]
+        merges = [tuple(m) for m in tokenizer_data["merges"]]
+        
     pre_tokenize_pattern = tokenizer_data.get("pre_tokenize_pattern")
     grapheme_pattern = tokenizer_data.get("grapheme_pattern")
     tokenizer = BPETokenizer(vocab, merges, pre_tokenize_pattern, grapheme_pattern)

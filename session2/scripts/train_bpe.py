@@ -27,7 +27,7 @@ SIMPLE_GRAPHEME_PATTERN = (
 )
 
 def split_graphemes(text):
-    return re.findall(SIMPLE_GRAPHEME_PATTERN, text)
+    return list(text)
 
 def extract_words(text):
     # Same word cleaning as the evaluator's clean words definition
@@ -250,7 +250,7 @@ def main():
         "ratios": final_ratios,
         "score": score,
         "pre_tokenize_pattern": pre_tokenize_pattern,
-        "grapheme_pattern": SIMPLE_GRAPHEME_PATTERN
+        "grapheme_pattern": "."
     }
     
     os.makedirs(os.path.join(os.path.dirname(os.path.dirname(__file__)), "model"), exist_ok=True)

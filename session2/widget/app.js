@@ -92,13 +92,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = window.TOKENIZER_DATA;
     const samples = window.SAMPLE_TEXTS;
     
+    // Extract vocab and merges from either custom or standard HF format
+    let vocab = data.vocab;
+    let merges = data.merges;
+    if (data.model) {
+        const vocabDict = data.model.vocab;
+        vocab = new Array(Object.keys(vocabDict).length);
+        for (const [token, idx] of Object.entries(vocabDict)) {
+            vocab[idx] = token;
+        }
+        merges = data.model.merges.map(m => Array.isArray(m) ? m : m.split(' '));
+    }
+    
     // Instantiate Tokenizer
-    const tokenizer = new BPETokenizer(data.vocab, data.merges, data.pre_tokenize_pattern, data.grapheme_pattern);
+    const tokenizer = new BPETokenizer(vocab, merges, data.pre_tokenize_pattern, data.grapheme_pattern);
     
     // 2. Populate Metrics Dashboard
     document.getElementById("score-val").innerText = data.score.toFixed(4);
-    document.getElementById("base-vocab-val").innerText = data.vocab.length - data.merges.length;
-    document.getElementById("merges-val").innerText = data.merges.length;
+    document.getElementById("base-vocab-val").innerText = vocab.length - merges.length;
+    document.getElementById("merges-val").innerText = merges.length;
     
     // Populate ratios list
     const languages = data.langs;
