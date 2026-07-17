@@ -10,22 +10,8 @@ class BPETokenizer:
         self.char_to_id = {char: idx for idx, char in enumerate(vocab)}
         self.cache = {}
         
-        # Load regex patterns dynamically from JSON or use defaults
-        punct = r'.,!?;:\(\)\[\]\{\}"\'«»\-\–\—/\\\|*&^%$#@।॥_+=<>`~'
-        self.pre_tokenize_pattern = pre_tokenize_pattern or rf' [^{punct} \n]+|[^{punct} \n]+| |[{punct}]|\n'
-        
-        indic_consonants = (
-            r'[\u0904-\u0939\u0958-\u0961'
-            r'\u0c05-\u0c39\u0c58-\u0c61'
-            r'\u0b85-\u0b9c\u0b9e-\u0ba9\u0baa-\u0bb9'
-            r'\u0985-\u099c\u099e-\u0ba9\u0baa-\u0bb9]'
-        )
-        indic_combining = (
-            r'[\u0900-\u0903\u093e-\u094c\u094e-\u094f\u0951-\u0957\u0962-\u0963'
-            r'\u0c00-\u0c04\u0c3e-\u0c4c\u0c55-\u0c56\u0c62-\u0c63'
-            r'\u0b82\u0bbe-\u0bc2\u0bc6-\u0bc8\u0bca-\u0bcc\u0bd7]'
-        )
-        self.grapheme_pattern = grapheme_pattern or rf'(?:{indic_consonants})(?:{indic_combining})*|.'
+        self.pre_tokenize_pattern = pre_tokenize_pattern
+        self.grapheme_pattern = grapheme_pattern
             
     def split_graphemes(self, text):
         return re.findall(self.grapheme_pattern, text)
