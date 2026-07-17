@@ -1,7 +1,7 @@
 // Custom Multilingual BPE Tokenizer Browser Runtime
 
 class BPETokenizer {
-    constructor(vocab, merges) {
+    constructor(vocab, merges, preTokenizePattern, graphemePattern) {
         this.vocab = vocab;
         this.merges = merges;
         
@@ -10,6 +10,10 @@ class BPETokenizer {
         vocab.forEach((token, idx) => {
             this.charToId[token] = idx;
         });
+
+        const punct = '.,!?;:\\(\\)\\[\\]\\{\\}"\'«»\\-\\–\\—/\\\\\\|*&^%$#@।॥_+=<>`~';
+        this.preTokenizePattern = preTokenizePattern || ` [^${punct} \\n]+|[^${punct} \\n]+| |[${punct}]|\\n`;
+        this.graphemePattern = graphemePattern || `(?:[\\u0904-\\u0939\\u0958-\\u0961\\u0c05-\\u0c39\\u0c58-\\u0c61\\u0b85-\\u0b9c\\u0b9e-\\u0ba9\\u0baa-\\u0bb9\\u0985-\\u099c\\u099e-\\u0ba9\\u0baa-\\u0bb9])(?:[\\u0900-\\u0903\\u093e-\\u094c\\u094e-\\u094f\\u0951-\\u0957\\u0962-\\u0963\\u0c00-\\u0c04\\u0c3e-\\u0c4c\\u0c55-\\u0c56\u0c62-\\u0c63\\u0b82\\u0bbe-\\u0bc2\\u0bc6-\\u0bc8\\u0bca-\\u0bcc\\u0bd7])*|.`;
     }
 
     tokenize(text) {
@@ -21,40 +25,16 @@ class BPETokenizer {
         const textCleaned = text.replace(/\u200c/g, '').replace(/\u200d/g, '');
         const textProcessed = textCleaned.replace(/ /g, ' ');
 
-        
-        // Punctuation characters to isolate
-        const punct = '.,!?;:\\(\\)\\[\\]\\{\\}"\'«»\\-\\–\\—/\\\\\\|*&^%$#@।॥_+=<>`~';
-        
         // 2. Pre-tokenize into words, spaces, and isolated punctuation segments
-        const segmentRegex = new RegExp(` [^${punct} \\n]+|[^${punct} \\n]+| |[${punct}]|\\n`, 'g');
+        const segmentRegex = new RegExp(this.preTokenizePattern, 'g');
         const segments = textProcessed.match(segmentRegex) || [];
-        
-        // Unicode character ranges for Indic scripts
-        const indicConsonants = /[\u0904-\u0939\u0958-\u0961\u0c05-\u0c39\u0c58-\u0c61\u0b85-\u0b9c\u0b9e-\u0ba9\u0baa-\u0bb9\u0985-\u099c\u099e-\u0ba9\u0baa-\u0bb9]/;
-        const indicCombining = /[\u0900-\u0903\u093e-\u094c\u094e-\u094f\u0951-\u0957\u0962-\u0963\u0c00-\u0c04\u0c3e-\u0c4c\u0c55-\u0c56\u0c62-\u0c63\u0b82\u0bbe-\u0bc2\u0bc6-\u0bc8\u0bca-\u0bcc\u0bd7]/;
 
         const tokenizedIds = [];
         const tokenizedStrings = [];
 
         segments.forEach(segment => {
             // 3. Split segment into simple grapheme clusters (consonant + matras)
-            const wordTokens = [];
-            let i = 0;
-            while (i < segment.length) {
-                const char = segment[i];
-                if (indicConsonants.test(char)) {
-                    let cluster = char;
-                    i++;
-                    while (i < segment.length && indicCombining.test(segment[i])) {
-                        cluster += segment[i];
-                        i++;
-                    }
-                    wordTokens.push(cluster);
-                } else {
-                    wordTokens.push(char);
-                    i++;
-                }
-            }
+            const wordTokens = segment.match(new RegExp(this.graphemePattern, 'g')) || [];
 
             // 4. Apply BPE merges in the exact order of training
             this.merges.forEach(pair => {
@@ -114,7 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const samples = window.SAMPLE_TEXTS;
     
     // Instantiate Tokenizer
-    const tokenizer = new BPETokenizer(data.vocab, data.merges);
+    const tokenizer = new BPETokenizer(data.vocab, data.merges, data.pre_tokenize_pattern, data.grapheme_pattern);
     
     // 2. Populate Metrics Dashboard
     document.getElementById("score-val").innerText = data.score.toFixed(4);

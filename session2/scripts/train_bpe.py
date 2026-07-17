@@ -239,12 +239,18 @@ def main():
     saved_merges = [[id_to_token[p[0]], id_to_token[p[1]]] for p in merges]
     vocab_list = [id_to_token[i] for i in range(vocab_size)]
     
+    # Pre-tokenization split pattern
+    punct = r'.,!?;:\(\)\[\]\{\}"\'«»\-\–\—/\\\|*&^%$#@।॥_+=<>`~'
+    pre_tokenize_pattern = rf' [^{punct} \n]+|[^{punct} \n]+| |[{punct}]|\n'
+    
     tokenizer_data = {
         "langs": langs,
         "vocab": vocab_list,
         "merges": saved_merges,
         "ratios": final_ratios,
-        "score": score
+        "score": score,
+        "pre_tokenize_pattern": pre_tokenize_pattern,
+        "grapheme_pattern": SIMPLE_GRAPHEME_PATTERN
     }
     
     os.makedirs(os.path.join(os.path.dirname(os.path.dirname(__file__)), "model"), exist_ok=True)
