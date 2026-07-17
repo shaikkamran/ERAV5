@@ -35,8 +35,11 @@ def extract_words(text):
     return [w for w in cleaned.split() if w]
 
 def pre_tokenize(text):
+    # Remove ZWNJ (\u200c) and ZWJ (\u200d) characters
+    text = text.replace('\u200c', '').replace('\u200d', '')
     # Replace space with U+2581 (lower one eighth block)
     text = text.replace(' ', ' ')
+
     
     # Punctuation characters to isolate
     punct = r'.,!?;:\(\)\[\]\{\}"\'«»\-\–\—/\\\|*&^%$#@।॥_+=<>`~'
@@ -85,6 +88,22 @@ def main():
 
     # Build base vocabulary of grapheme clusters
     all_graphemes = set()
+    
+    # 1. Initialize with all printable ASCII characters (from space to ~)
+    for i in range(32, 127):
+        all_graphemes.add(chr(i))
+        
+    # 2. Add special whitespace characters
+    all_graphemes.add('\n')
+    all_graphemes.add('\t')
+    all_graphemes.add(' ')  # Space placeholder (U+2581)
+    
+    # 3. Add explicit punctuation characters to ensure they are never ignored
+    extra_punct = ".,!?;:()[]{}\"'«»-–—/\\|*&^%$#@।॥_+=<>`~"
+    for c in extra_punct:
+        all_graphemes.add(c)
+        
+    # 4. Add all unique graphemes from the training texts
     for lang in langs:
         for segment in pre_tokens[lang]:
             all_graphemes.update(split_graphemes(segment))

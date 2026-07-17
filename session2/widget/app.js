@@ -17,8 +17,10 @@ class BPETokenizer {
             return { ids: [], tokens: [] };
         }
         
-        // 1. Process spaces (replace with U+2581)
-        const textProcessed = text.replace(/ /g, ' ');
+        // 1. Remove ZWNJ (\u200c) and ZWJ (\u200d) characters, then process spaces (replace with U+2581)
+        const textCleaned = text.replace(/\u200c/g, '').replace(/\u200d/g, '');
+        const textProcessed = textCleaned.replace(/ /g, ' ');
+
         
         // Punctuation characters to isolate
         const punct = '.,!?;:\\(\\)\\[\\]\\{\\}"\'«»\\-\\–\\—/\\\\\\|*&^%$#@।॥_+=<>`~';

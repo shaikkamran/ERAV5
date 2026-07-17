@@ -30,10 +30,14 @@ class BPETokenizer:
         self.vocab = vocab
         self.merges = merges
         self.char_to_id = {char: idx for idx, char in enumerate(vocab)}
+        self.cache = {}
             
     def tokenize(self, text):
+        # Remove ZWNJ (\u200c) and ZWJ (\u200d) characters
+        text = text.replace('\u200c', '').replace('\u200d', '')
         # Replace space with U+2581 (lower one eighth block)
         text_processed = text.replace(' ', ' ')
+
         
         # Punctuation characters to isolate
         punct = r'.,!?;:\(\)\[\]\{\}"\'«»\-\–\—/\\\|*&^%$#@।॥_+=<>`~'
@@ -44,6 +48,10 @@ class BPETokenizer:
         
         tokenized_ids = []
         for word in words:
+            if word in self.cache:
+                tokenized_ids.extend(self.cache[word])
+                continue
+                
             # Represent word as a list of its simple grapheme clusters
             word_tokens = split_graphemes(word)
             
@@ -61,12 +69,16 @@ class BPETokenizer:
                 word_tokens = new_word_tokens
                 
             # Convert final merged string tokens to vocabulary IDs
+            word_ids = []
             for t in word_tokens:
                 if t in self.char_to_id:
-                    tokenized_ids.append(self.char_to_id[t])
+                    word_ids.append(self.char_to_id[t])
                 else:
                     # Ignore unknown tokens
                     pass
+            
+            self.cache[word] = word_ids
+            tokenized_ids.extend(word_ids)
         return tokenized_ids
 
 def extract_words(text):
